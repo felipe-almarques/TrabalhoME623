@@ -165,7 +165,7 @@ modelo <- lm(milho ~ oleo*marca + casa, data = dados)
 anova(modelo)
 
 modelo2 <- lm(milho ~ oleo + marca + casa, data = dados)
-anova(modelo)
+anova(modelo2)
 
 # O modelo aponta que o óleo é importante, mas a marca não faz muita diferença
 
@@ -173,12 +173,43 @@ anova(modelo2, modelo)
 
 
 #### Diagnóstico
-qqnorm(erros)
-qqline(erros)
-
-data.frame(erros = modelo2$residuals, preditos = modelo2$fitted.values) %>% 
+# qqplot - Resíduos padronizados
+pdf(file = "artifacts/graf_qqplot.pdf", height = 6, width = 8)
+data.frame(erros = modelo2$residuals / sqrt(50.518), 
+           preditos = modelo2$fitted.values) %>% 
   ggplot(aes(sample = erros)) + 
-  stat_qq() + 
+  stat_qq(color = "blue") + 
   stat_qq_line() + 
+  labs(x = "Resíduos Padronizados",
+       y = "Quantis Teóricos") +
   theme_bw()
+dev.off()
 
+# resíduos vs Ordem de coleta
+pdf(file = "artifacts/graf_ordem.pdf", height = 6, width = 8)
+dados %>% 
+  mutate(residuos = modelo2$residuals) %>% 
+  ggplot(aes(x = id, y = residuos)) + 
+  geom_point() + 
+  geom_line() + 
+  labs(x = "Ordem de coleta dos dados",
+       y = "Resíduos") + 
+  theme_bw()
+dev.off()
+
+data.frame(res = modelo2$residuals, ajust = modelo2$fitted.values) %>% 
+  ggplot(aes(x = ajust, y = res)) + 
+  geom_point() # Indícios de variância não constante
+
+# modelo log milho
+modelo3 <- lm(log(milho) ~ oleo + marca + casa, data = dados)
+anova(modelo3)
+
+pdf(file = "artifacts/graf_resXajust.pdf", width = 8, height = 6)
+data.frame(res = modelo3$residuals, ajust = modelo3$fitted.values) %>% 
+  ggplot(aes(x = ajust, y = res)) + 
+  geom_point() +
+  labs(x = "Valores ajustados",
+       y = "Resíduos") + 
+  theme_bw()
+dev.off()

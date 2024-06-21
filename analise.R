@@ -144,19 +144,64 @@ dados %>%
        x = "Marca da Pipoca") +
   theme(legend.position = "none")
 
+pdf(file = "artifacts/graf_boxplots_oleoXcasa.pdf", width = 8, height = 6)
+dados %>% 
+  ggplot() +
+  geom_boxplot(aes(x = oleo, y = milho, fill = oleo)) +
+  theme_bw() +
+  facet_wrap(~casa) + 
+  labs(y = "Quantidade de milho não estourada",
+       x = "Tipo de Óleo utilizado") +
+  theme(legend.position = "none")
+dev.off()
+
+
+dados %>% 
+  ggplot() +
+  geom_boxplot(aes(x = marca, y = milho, fill = marca)) +
+  theme_bw() +
+  facet_wrap(~casa) + 
+  labs(y = "Quantidade de milho não estourada",
+       x = "Marca da Pipoca") +
+  theme(legend.position = "none")
+
 # Gráfico dos perfis médios (Interação)
 
-pdf(file = "artifacts/graf_perfis.pdf", width = 8, height = 6)
-dados %>% 
+#pdf(file = "artifacts/graf_perfis.pdf", width = 8, height = 6)
+p1 <- dados %>% 
   group_by(oleo, marca) %>% 
   reframe(media = mean(milho)) %>% 
   mutate(id = row_number()) %>% 
   ggplot(aes(x = oleo, y = media, color = marca, group = marca)) +
   geom_point(size = 2) +
   geom_line(aes(linetype = marca), size = 1) +
-  labs(y = "Quantidade de milho não estourada",
+  labs(y = "",
        x = "Tipo de Óleo utilizado") + 
-  theme_bw()
+  lims(y = c(0, 30)) +
+  theme_bw() + 
+  theme(legend.position = c(.83,.88))
+#dev.off()
+
+#pdf(file = "artifacts/graf_perfis_casa.pdf", height = 6, width = 8)
+p2 <- dados %>% 
+  group_by(oleo, casa) %>% 
+  reframe(media = mean(milho)) %>% 
+  mutate(id = row_number()) %>% 
+  ggplot(aes(x = oleo, y = media, color = casa, group = casa)) +
+  geom_point(size = 2) +
+  geom_line(aes(linetype = casa), size = 1) +
+  labs(y = "",
+       x = "Tipo de Óleo utilizado") + 
+  lims(y = c(0, 30)) +
+  theme_bw() +
+  theme(legend.position = c(.83,.88))
+#dev.off()
+
+graf <- p1 + p2
+gt <- patchworkGrob(graf)
+
+pdf(file = "artifacts/graf_perfis.pdf", height = 6, width = 10)
+gridExtra::grid.arrange(gt, left = "Quantidade de milho não estourada")
 dev.off()
 
 #### ANOVA
@@ -197,9 +242,18 @@ dados %>%
   theme_bw()
 dev.off()
 
-data.frame(res = modelo2$residuals, ajust = modelo2$fitted.values) %>% 
+pdf(file = "artifacts/graf_indiciosVar.pdf", width = 8, height = 6)
+i1 <- data.frame(res = modelo2$residuals, 
+                 ajust = modelo2$fitted.values) %>% 
   ggplot(aes(x = ajust, y = res)) + 
-  geom_point() # Indícios de variância não constante
+  geom_point() + # Indícios de variância não constante
+  labs(y = "", x = "Valores preditos") +
+  theme_bw()
+dev.off()
+
+bartlett.test(milho ~ casa, data = dados)
+
+
 
 # modelo log milho
 modelo3 <- lm(log(milho) ~ oleo + marca + casa, data = dados)
@@ -213,3 +267,129 @@ data.frame(res = modelo3$residuals, ajust = modelo3$fitted.values) %>%
        y = "Resíduos") + 
   theme_bw()
 dev.off()
+
+modelo4 <- lm(log(milho) ~ oleo*casa + marca, data = dados)
+anova(modelo4)
+
+# qqplot
+pdf(file = "artifacts/graf_qqplot.pdf", height = 6, width = 8)
+data.frame(erros = modelo4$residuals / sqrt(.28671), 
+           preditos = modelo4$fitted.values) %>% 
+  ggplot(aes(sample = erros)) + 
+  stat_qq(color = "blue") + 
+  stat_qq_line() + 
+  labs(x = "Resíduos Padronizados",
+       y = "Quantis Teóricos") +
+  theme_bw()
+dev.off()
+
+# resíduos vs Ordem de coleta
+pdf(file = "artifacts/graf_ordem.pdf", height = 6, width = 8)
+dados %>% 
+  mutate(residuos = modelo4$residuals) %>% 
+  ggplot(aes(x = id, y = residuos)) + 
+  geom_point() + 
+  geom_line() + 
+  labs(x = "Ordem de coleta dos dados",
+       y = "Resíduos") + 
+  theme_bw()
+dev.off()
+
+pdf(file = "artifacts/graf_resXajust.pdf", width = 8, height = 6)
+data.frame(res = modelo4$residuals, ajust = modelo4$fitted.values) %>% 
+  ggplot(aes(x = ajust, y = res)) + 
+  geom_point() +
+  labs(x = "Valores ajustados",
+       y = "Resíduos") + 
+  theme_bw()
+dev.off()
+
+#################################################
+######### Modelo Vencedor - Modelo 3    #########
+#################################################
+# Modelo 4 - Considerar a interação entre os blocos piora o ajuste do modelo
+modelo4 <- lm(log(milho) ~ oleo*casa + marca, data = dados)
+anova(modelo4)
+
+# qqplot
+pdf(file = "artifacts/graf_qqplot4.pdf", height = 6, width = 8)
+data.frame(erros = modelo4$residuals / sqrt(.28671), 
+           preditos = modelo4$fitted.values) %>% 
+  ggplot(aes(sample = erros)) + 
+  stat_qq(color = "blue") + 
+  stat_qq_line() + 
+  labs(x = "Resíduos Padronizados",
+       y = "Quantis Teóricos") +
+  theme_bw()
+dev.off()
+
+# resíduos vs Ordem de coleta
+pdf(file = "artifacts/graf_ordem4.pdf", height = 6, width = 8)
+dados %>% 
+  mutate(residuos = modelo4$residuals) %>% 
+  ggplot(aes(x = id, y = residuos)) + 
+  geom_point() + 
+  geom_line() + 
+  labs(x = "Ordem de coleta dos dados",
+       y = "Resíduos") + 
+  theme_bw()
+dev.off()
+
+pdf(file = "artifacts/graf_resXajust4.pdf", width = 8, height = 6)
+data.frame(res = modelo4$residuals, ajust = modelo4$fitted.values) %>% 
+  ggplot(aes(x = ajust, y = res)) + 
+  geom_point() +
+  labs(x = "Valores ajustados",
+       y = "Resíduos") + 
+  theme_bw()
+dev.off()
+
+
+# Modelo 3
+modelo3 <- lm(log(milho) ~ oleo + marca + casa, data = dados)
+round(anova(modelo3), 3)
+
+# qqplot
+pdf(file = "artifacts/graf_qqplot3.pdf", height = 6, width = 8)
+data.frame(erros = modelo3$residuals / sqrt(.28671), 
+           preditos = modelo3$fitted.values) %>% 
+  ggplot(aes(sample = erros)) + 
+  stat_qq(color = "blue") + 
+  stat_qq_line() + 
+  labs(x = "Resíduos Padronizados",
+       y = "Quantis Teóricos") +
+  theme_bw()
+dev.off()
+
+shapiro.test(modelo3$residuals/sqrt(.28671))
+
+# resíduos vs Ordem de coleta
+pdf(file = "artifacts/graf_ordem3.pdf", height = 6, width = 8)
+dados %>% 
+  mutate(residuos = modelo3$residuals) %>% 
+  ggplot(aes(x = id, y = residuos)) + 
+  geom_point() + 
+  geom_line() + 
+  labs(x = "Ordem de coleta dos dados",
+       y = "Resíduos") + 
+  theme_bw()
+dev.off()
+
+pdf(file = "artifacts/graf_resXajust3.pdf", width = 8, height = 6)
+i2 <- data.frame(res = modelo3$residuals, 
+                 ajust = modelo3$fitted.values) %>% 
+  ggplot(aes(x = ajust, y = res)) + 
+  geom_point() +
+  labs(x = "Valores ajustados",
+       y = "") + 
+  theme_bw()
+dev.off()
+
+graf <- i1 + i2
+gt <- patchworkGrob(graf)
+
+pdf(file = "artifacts/graf_indiciosVar.pdf", width = 8, height = 6)
+gridExtra::grid.arrange(gt, left = "Resíduos")
+dev.off()
+
+bartlett.test(log(milho) ~ casa, data = dados)
